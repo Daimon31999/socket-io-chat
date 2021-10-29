@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding-bottom: 3rem;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Helvetica, Arial, sans-serif;
+      }
+      #form {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 0.25rem;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: 3rem;
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+      }
+      #input {
+        border: none;
+        padding: 0 1rem;
+        flex-grow: 1;
+        border-radius: 2rem;
+        margin: 0.25rem;
+      }
+      #input:focus {
+        outline: none;
+      }
+      #form > button {
+        background: #333;
+        border: none;
+        padding: 0 1rem;
+        margin: 0.25rem;
+        border-radius: 3px;
+        outline: none;
+        color: #fff;
+      }
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+      #messages > li {
+        padding: 0.5rem 1rem;
+      }
+      #messages > li:nth-child(odd) {
+        background: #efefef;
+      }
+
+      #messages li span.is-online::after {
+        content: '';
+        width: 10px;
+        height: 10px;
+        margin-left: 4px;
+        border-radius: 50%;
+        background: rgb(96, 241, 96);
+        display: inline-block;
+      }
+
+      #messages li span.is-offline::after {
+        content: '';
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-left: 4px;
+        display: inline-block;
+        background: rgb(126, 126, 126);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="user-name"></div>
+    <span id="is-online"></span>
+    <div id="alert"></div>
+    <ul id="messages"></ul>
+    <div id="is-typing"></div>
+
+    <form id="form" action="">
+      <input
+        id="input"
+        autocomplete="off"
+        onchange="handleInputChange()"
+      /><button>Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io()
+      const messages = document.getElementById('messages')
+      const form = document.getElementById('form')
+      const input = document.getElementById('input')
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault()
+
+        if (input.value) {
+          socket.emit('chat-message', input.value)
+          input.value = ''
+        }
+      })
+
+      const handleInputChange = (e) => {
+        socket.emit('user-is-typing', socket.userName)
+      }
+
+      socket.on('is-online', (payload) => {
+        const { userName, isOnline } = payload
+        const items = document.querySelectorAll('#messages li span')
+
+        items.forEach((span) => {
+          if (span.innerHTML.includes(userName)) {
+            span.className = `is-${isOnline ? 'online' : 'offline'}`
+          }
+        })
+      })
+
+      socket.on('send-nickname', (nickname) => {
+        const item = document.getElementById('user-name')
+
+        item.innerHTML = `<b>${nickname}</b>`
+        socket.userName = nickname
+        window.scrollTo(0, document.body.scrollHeight)
+      })
+
+      socket.on('user-is-typing-broadcast', (nickname) => {
+        const item = document.getElementById('is-typing')
+
+        if (!nickname) {
+          item.innerHTML = ''
+
+          return
+        }
+
+        item.innerHTML = `<b>${nickname}</b> is typing...`
+
+        const timeout = setTimeout(() => {
+          item.innerHTML = ''
+          clearTimeout(timeout)
+        }, 1000)
+
+        window.scrollTo(0, document.body.scrollHeight)
+      })
+
+      socket.on('chat-message', function (payload) {
+        const { msg, userName, isOnline } = payload
+        const item = document.createElement('li')
+
+        item.innerHTML = `<span class="is-${
+          isOnline ? 'online' : 'offline'
+        }"><b>${userName}</b>: ${msg}</span>`
+
+        messages.appendChild(item)
+        window.scrollTo(0, document.body.scrollHeight)
+      })
+
+      socket.on('user disconnect', function (msg) {
+        const item = document.createElement('li')
+
+        item.textContent = msg
+        messages.appendChild(item)
+        window.scrollTo(0, document.body.scrollHeight)
+      })
+    </script>
+  </body>
+</html>
